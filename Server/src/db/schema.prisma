@@ -1,0 +1,24 @@
+// Import mongoose/sequelize here and define a function to connect to the database
+// Don't forget to export it!```prisma
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+generator client {
+    provider = "prisma-client-js"
+}
+
+model AirQualityRecord {
+    id        String   @id @default(uuid())
+    source    String
+    pollutant String
+    value     Float
+    unit      String
+    aqi       Int
+    lat       Float?
+    lon       Float?
+    timestamp DateTime @default(now())
+
+    @@index([pollutant, timestamp])
+    @@index([source, timestamp])
+}
