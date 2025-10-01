@@ -69,8 +69,8 @@ const AlertSettings = () => {
   const [locations, setLocations] = useState<Location[]>([
     {
       id: "1",
-      name: "Home - Manhattan, NY",
-      coordinates: [40.7128, -74.006],
+      name: "Home - Birgunj, NP",
+      coordinates: [27.0449, 84.8672],
       enabled: true,
     },
     {

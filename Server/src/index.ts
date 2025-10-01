@@ -90,14 +90,12 @@ app.get("/airquality/history", async (req: Request, res: Response) => {
       }))
     );
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error(e);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
 app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
   console.log(`AirSight server listening on :${PORT}`);
 });
 
