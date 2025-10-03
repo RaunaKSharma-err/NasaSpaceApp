@@ -26,15 +26,20 @@ const getWeather = async (lat, lon) => {
 
 const getSensorId = async (lat, lon, parameter) => {
   const res = await axios.get(
-    `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=12000&limit=1000`,
+    `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=25000&limit=1000`,
     {
       headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
     }
   );
+
   if (!res.data.results.length) return null;
-  const station = res.data.results[0];
-  const sensor = station.sensors.find((s) => s.parameter.name === parameter);
-  return sensor ? sensor.id : null;
+
+  for (const loc of res.data.results) {
+    const sensor = loc.sensors.find((s) => s.parameter === parameter);
+    if (sensor) return sensor.id;
+  }
+
+  return null; // No matching sensor
 };
 
 const getPollutant = async (lat, lon, parameter) => {
@@ -48,14 +53,25 @@ const getPollutant = async (lat, lon, parameter) => {
         headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
       }
     );
+
     return res.data.results.length ? res.data.results[0].value : null;
   } else {
     const { data } = await axios.get(
       `http://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${process.env.OPENWEATHER_API_KEY}`
     );
     const result = data.list[0];
-    const value = result.components[parameter];
-    return value ? value : 0;
+    const mapping = {
+      pm25: "pm2_5",
+      pm10: "pm10",
+      no2: "no2",
+      o3: "o3",
+      so2: "so2",
+      co: "co",
+    };
+
+    const owKey = mapping[parameter] || parameter;
+    const value = result.components[owKey];
+    return value !== undefined ? value : 0;
   }
 };
 
@@ -76,13 +92,56 @@ const aqiBreakpoints = {
     { cpLow: 250.5, cpHigh: 350.4, aqiLow: 301, aqiHigh: 400 },
     { cpLow: 350.5, cpHigh: 500.4, aqiLow: 401, aqiHigh: 500 },
   ],
+  pm10: [
+    { cpLow: 0, cpHigh: 54, aqiLow: 0, aqiHigh: 50 },
+    { cpLow: 55, cpHigh: 154, aqiLow: 51, aqiHigh: 100 },
+    { cpLow: 155, cpHigh: 254, aqiLow: 101, aqiHigh: 150 },
+    { cpLow: 255, cpHigh: 354, aqiLow: 151, aqiHigh: 200 },
+    { cpLow: 355, cpHigh: 424, aqiLow: 201, aqiHigh: 300 },
+    { cpLow: 425, cpHigh: 504, aqiLow: 301, aqiHigh: 400 },
+    { cpLow: 505, cpHigh: 604, aqiLow: 401, aqiHigh: 500 },
+  ],
+  no2: [
+    { cpLow: 0, cpHigh: 53, aqiLow: 0, aqiHigh: 50 },
+    { cpLow: 54, cpHigh: 100, aqiLow: 51, aqiHigh: 100 },
+    { cpLow: 101, cpHigh: 360, aqiLow: 101, aqiHigh: 150 },
+    { cpLow: 361, cpHigh: 649, aqiLow: 151, aqiHigh: 200 },
+    { cpLow: 650, cpHigh: 1249, aqiLow: 201, aqiHigh: 300 },
+    { cpLow: 1250, cpHigh: 1649, aqiLow: 301, aqiHigh: 400 },
+    { cpLow: 1650, cpHigh: 2049, aqiLow: 401, aqiHigh: 500 },
+  ],
+  o3: [
+    { cpLow: 0, cpHigh: 54, aqiLow: 0, aqiHigh: 50 },
+    { cpLow: 55, cpHigh: 70, aqiLow: 51, aqiHigh: 100 },
+    { cpLow: 71, cpHigh: 85, aqiLow: 101, aqiHigh: 150 },
+    { cpLow: 86, cpHigh: 105, aqiLow: 151, aqiHigh: 200 },
+    { cpLow: 106, cpHigh: 200, aqiLow: 201, aqiHigh: 300 },
+  ],
+  so2: [
+    { cpLow: 0, cpHigh: 35, aqiLow: 0, aqiHigh: 50 },
+    { cpLow: 36, cpHigh: 75, aqiLow: 51, aqiHigh: 100 },
+    { cpLow: 76, cpHigh: 185, aqiLow: 101, aqiHigh: 150 },
+    { cpLow: 186, cpHigh: 304, aqiLow: 151, aqiHigh: 200 },
+    { cpLow: 305, cpHigh: 604, aqiLow: 201, aqiHigh: 300 },
+    { cpLow: 605, cpHigh: 804, aqiLow: 301, aqiHigh: 400 },
+    { cpLow: 805, cpHigh: 1004, aqiLow: 401, aqiHigh: 500 },
+  ],
+  co: [
+    { cpLow: 0, cpHigh: 4.4, aqiLow: 0, aqiHigh: 50 },
+    { cpLow: 4.5, cpHigh: 9.4, aqiLow: 51, aqiHigh: 100 },
+    { cpLow: 9.5, cpHigh: 12.4, aqiLow: 101, aqiHigh: 150 },
+    { cpLow: 12.5, cpHigh: 15.4, aqiLow: 151, aqiHigh: 200 },
+    { cpLow: 15.5, cpHigh: 30.4, aqiLow: 201, aqiHigh: 300 },
+    { cpLow: 30.5, cpHigh: 40.4, aqiLow: 301, aqiHigh: 400 },
+    { cpLow: 40.5, cpHigh: 50.4, aqiLow: 401, aqiHigh: 500 },
+  ],
 };
 
 function calculatePollutantAQI(value, pollutant) {
   const breakpoints = aqiBreakpoints[pollutant];
   if (!breakpoints) return null;
   const bp = breakpoints.find((b) => value >= b.cpLow && value <= b.cpHigh);
-  if (!bp) return 500; // Above max limit
+  if (!bp) return 500;
   const aqi =
     ((bp.aqiHigh - bp.aqiLow) / (bp.cpHigh - bp.cpLow)) * (value - bp.cpLow) +
     bp.aqiLow;
@@ -94,7 +153,7 @@ const get24HourTrend = async (lat, lon, parameter) => {
   if (!sensorId) return []; // No sensor found
 
   const res = await axios.get(
-    `https://api.openaq.org/v3/sensors/${sensorId}/days`,
+    `https://api.openaq.org/v3/sensors/${sensorId}/hours?limit=24`,
     {
       headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
     }
@@ -105,7 +164,7 @@ const get24HourTrend = async (lat, lon, parameter) => {
   return res.data.results
     .filter((r) => r.date?.from && r.value !== undefined)
     .map((r) => ({
-      date: r.date?.from,
+      date: r.date.utc,
       value: r.value,
     }));
 };

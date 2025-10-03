@@ -16,32 +16,51 @@ import {
   Cloud,
   Sun,
   Zap,
+  Loader,
 } from "lucide-react";
+import { useAQIStore } from "@/service/api";
 
 const Dashboard = () => {
+  const { fetchEnabledCity } = useAQIStore();
+  const [enabledCity, setEnabledCity] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [location, setLocation] = useState("New York, NY");
+  const [location, setLocation] = useState("Birgunj, NP");
   const [lastUpdated, setLastUpdated] = useState(new Date());
+
+  useEffect(() => {
+    const loadCity = async () => {
+      const city = await fetchEnabledCity();
+      setEnabledCity(city);
+    };
+    loadCity();
+  }, []);
 
   const handleRefresh = () => {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setTimeout(async () => {
+      const city = await fetchEnabledCity();
+      setEnabledCity(city);
       setLastUpdated(new Date());
       setIsLoading(false);
     }, 1500);
   };
 
-  // Mock current environmental data
+  if (!enabledCity)
+    return (
+      <div className="w-screen h-screen flex justify-center items-center">
+        <Loader size={30} />
+      </div>
+    );
+
   const currentData = {
-    aqi: 68,
-    pm25: 19.5,
-    temperature: 24,
-    humidity: 62,
-    windSpeed: 8.5,
-    visibility: 12,
-    uvIndex: 6,
-    precipitation: 0.2,
+    aqi: enabledCity.aqi,
+    pm25: enabledCity.pm25,
+    temperature: enabledCity.temperature,
+    humidity: enabledCity.humidity,
+    windSpeed: enabledCity.wind_speed,
+    visibility: enabledCity.visibility,
+    uvIndex: enabledCity.uv_index,
+    precipitation: enabledCity.precipitation,
   };
 
   return (

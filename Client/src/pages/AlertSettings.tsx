@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,8 @@ import {
   Trash2,
   Save,
 } from "lucide-react";
+import { useAQIStore } from "@/service/api";
+import type { City } from "@/service/api";
 
 interface AlertThreshold {
   id: string;
@@ -22,13 +24,6 @@ interface AlertThreshold {
   condition: "above" | "below";
   value: number;
   unit: string;
-  enabled: boolean;
-}
-
-interface Location {
-  id: string;
-  name: string;
-  coordinates: [number, number];
   enabled: boolean;
 }
 
@@ -66,22 +61,22 @@ const AlertSettings = () => {
     },
   ]);
 
-  const [locations, setLocations] = useState<Location[]>([
-    {
-      id: "1",
-      name: "Home - Birgunj, NP",
-      coordinates: [27.0449, 84.8672],
-      enabled: true,
-    },
-    {
-      id: "2",
-      name: "Work - Brooklyn, NY",
-      coordinates: [40.6892, -74.0445],
-      enabled: true,
-    },
-  ]);
+  const [locations, setLocations] = useState<City[]>([]);
+  const { getCities, cities, deleteCity, toggleLocation } = useAQIStore();
 
-  const [email, setEmail] = useState("user@example.com");
+  useEffect(() => {
+    getCities();
+  }, []);
+
+  useEffect(() => {
+    if (cities && cities.length > 0) {
+      setLocations(cities);
+    }
+  }, [cities]);
+
+  console.log(locations);
+
+  const [email, setEmail] = useState("john@adam.com");
 
   const toggleThreshold = (id: string) => {
     setThresholds(
@@ -91,16 +86,6 @@ const AlertSettings = () => {
 
   const updateThresholdValue = (id: string, value: number) => {
     setThresholds(thresholds.map((t) => (t.id === id ? { ...t, value } : t)));
-  };
-
-  const toggleLocation = (id: string) => {
-    setLocations(
-      locations.map((l) => (l.id === id ? { ...l, enabled: !l.enabled } : l))
-    );
-  };
-
-  const removeLocation = (id: string) => {
-    setLocations(locations.filter((l) => l.id !== id));
   };
 
   return (
@@ -289,49 +274,54 @@ const AlertSettings = () => {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {locations.map((location) => (
-              <div
-                key={location.id}
-                className="flex items-center justify-between p-4 border border-border rounded-lg"
-              >
-                <div className="flex items-center space-x-4">
-                  <Switch
-                    checked={location.enabled}
-                    onCheckedChange={() => toggleLocation(location.id)}
-                  />
-                  <div>
-                    <h4 className="font-medium text-foreground">
-                      {location.name}
-                    </h4>
-                    <p className="text-sm text-muted-foreground">
-                      {location.coordinates[0].toFixed(4)},{" "}
-                      {location.coordinates[1].toFixed(4)}
-                    </p>
+            {locations && locations.length > 0 ? (
+              locations.map((location) => (
+                <div
+                  key={location.id}
+                  className="flex items-center justify-between p-4 border border-border rounded-lg"
+                >
+                  <div className="flex items-center space-x-4">
+                    <Switch
+                      checked={location.enabled}
+                      onCheckedChange={() => toggleLocation(location.id)}
+                    />
+                    <div>
+                      <h4 className="font-medium text-foreground">
+                        {location.city}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        {location.lat.toFixed(4)}, {location.lon.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Badge
+                      variant="secondary"
+                      className={
+                        location.enabled
+                          ? "bg-green-500/20 text-green-600"
+                          : "bg-muted"
+                      }
+                    >
+                      {location.enabled ? "Monitoring" : "Disabled"}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteCity(location.city)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex items-center space-x-2">
-                  <Badge
-                    variant="secondary"
-                    className={
-                      location.enabled
-                        ? "bg-green-500/20 text-green-600"
-                        : "bg-muted"
-                    }
-                  >
-                    {location.enabled ? "Monitoring" : "Disabled"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLocation(location.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">
+                No locations available
+              </p>
+            )}
           </CardContent>
         </Card>
 
