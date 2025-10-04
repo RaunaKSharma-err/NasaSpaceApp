@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   MapContainer,
@@ -9,14 +9,16 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import axios from "axios";
-import { MapPin, Satellite, Layers } from "lucide-react";
+import { MapPin, Satellite, Layers, Loader } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { axiosInstance } from "@/lib/axios";
 
 interface Station {
   id: string;
   name: string;
-  coordinates: { latitude: number; longitude: number };
+  latitude: number;
+  longitude: number;
   aqi?: number;
   pm25?: number;
   status?: string;
@@ -57,6 +59,7 @@ const getStatusColor = (aqiStatus?: string) => {
 };
 
 const MapPanel = ({ zoom = 5, height = "500px" }) => {
+  const mapRef = useRef<L.Map>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedLayers, setSelectedLayers] = useState({
     airQuality: true,
@@ -71,22 +74,46 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
   };
 
   useEffect(() => {
-    const fetchStations = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/stations", {
-          params: { lat: 27.7, lon: 85.3, radius: 20000 },
-        });
+    const map = mapRef.current;
+    if (!map) return;
 
-        setStations(res.data);
-        console.log("Stations from backend:", res.data);
-      } catch (err) {
-        console.error("Error fetching stations:", err);
-      }
-    };
+    // fetch initial stations
+    fetchStations(map.getBounds());
 
-    fetchStations();
+    // fetch stations on move
+    map.on("moveend", () => {
+      fetchStations(map.getBounds());
+    });
   }, []);
 
+  const fetchStations = async (bounds: L.LatLngBounds) => {
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+
+    try {
+      const res = await axiosInstance.get(
+        `/stations?minLat=${southWest.lat}&maxLat=${northEast.lat}&minLng=${southWest.lng}&maxLng=${northEast.lng}`
+      );
+
+      const data = res.data; // <-- Axios automatically parses JSON
+
+      if (Array.isArray(data.stations)) {
+        setStations(data.stations);
+      } else if (Array.isArray(data)) {
+        setStations(data);
+      } else {
+        setStations([]);
+      }
+    } catch (err) {
+      console.error("Error fetching stations:", err);
+      setStations([]);
+    }
+  };
+
+  if (!stations)
+    <div>
+      <Loader size={30} />
+    </div>;
   console.log(stations);
 
   return (
@@ -135,6 +162,20 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
             center={[27.0449, 84.8672] as [number, number]}
             zoom={zoom}
             style={{ height: "100%", width: "100%", zIndex: 40 }}
+            ref={mapRef}
+            whenReady={() => {
+              if (!mapRef.current) return;
+
+              const map = mapRef.current;
+
+              // initial fetch
+              fetchStations(map.getBounds());
+
+              // fetch on move
+              map.on("moveend", () => {
+                fetchStations(map.getBounds());
+              });
+            }}
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -146,15 +187,11 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
                   <CircleMarker
                     key={station.id}
                     center={
-                      [
-                        station.coordinates.latitude,
-                        station.coordinates.longitude,
-                      ] as [number, number]
+                      [station.latitude, station.longitude] as [number, number]
                     }
-                    radius={10}
+                    radius={5}
                     color={getStatusColor(station.status)}
-                    fillOpacity={0.7}
-                    weight={2}
+                    fillOpacity={0.6}
                   >
                     <Popup>
                       <div className="space-y-1">

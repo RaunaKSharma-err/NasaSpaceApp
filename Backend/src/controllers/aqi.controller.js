@@ -5,6 +5,8 @@ const {
   getLatLon,
   getPollutant,
   getWeather,
+  getAllStations,
+  storeStations,
 } = require("../services/aqiService.service");
 
 const handleAddCity = async (req, res) => {
@@ -47,7 +49,7 @@ const handleAddCity = async (req, res) => {
     const so2 = await getPollutant(lat, lon, "so2");
 
     const pollutants = { pm25, pm10, no2, o3, co, so2 };
-    console.log(pollutants);
+    console.log("pollutants", pollutants);
 
     // Calculate AQI
     const aqi = calculateOverallAQI(pollutants);
@@ -192,35 +194,34 @@ const getEnabledCity = async (req, res) => {
   }
 };
 
-const getStations = async (req, res) => {
+const FetchAllStations = async (req, res) => {
   try {
-    const { limit = 10000 } = req.query;
-
-    const response = await axios.get("https://api.openaq.org/v3/locations", {
-      params: { limit },
-      headers: {
-        "X-API-Key": process.env.OPENAQ_API_KEY,
-      },
+    const stations = await getAllStations();
+    await storeStations(stations);
+    res.json({
+      message: "Stations updated successfully",
+      total: stations.length,
     });
-
-    const stations = response.data.results
-      .filter((loc) => loc.coordinates?.latitude && loc.coordinates?.longitude)
-      .map((loc) => ({
-        id: loc.id.toString(),
-        name: loc.name,
-        latitude: loc.coordinates.latitude,
-        longitude: loc.coordinates.longitude,
-        pm25: loc.parameters.find((p) => p.parameter === "pm25")?.lastValue
-          ?.value,
-        aqi: loc.parameters[0]?.lastValue?.value ?? null,
-        status: "moderate",
-      }));
-
-    res.json(stations);
   } catch (err) {
-    console.error("Error fetching OpenAQ:", err);
-    res.status(500).json({ error: "Failed to fetch stations" });
+    console.error("❌ Error updating stations:", err);
+    res.status(500).json({ error: err.message });
   }
+};
+
+const getStations = async (req, res) => {
+  const { minLat, maxLat, minLng, maxLng } = req.query;
+
+  const { data, error } = await supabase
+    .from("stations")
+    .select("*")
+    .gte("latitude", minLat)
+    .lte("latitude", maxLat)
+    .gte("longitude", minLng)
+    .lte("longitude", maxLng);
+
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({ stations: data });
 };
 
 module.exports = {
@@ -232,4 +233,5 @@ module.exports = {
   handleEnableCity,
   getEnabledCity,
   getStations,
+  FetchAllStations,
 };

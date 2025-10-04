@@ -1,5 +1,6 @@
 const dotenv = require("dotenv");
 const axios = require("axios");
+const { supabase } = require("../config/supabase");
 dotenv.config();
 
 const getLatLon = async (city) => {
@@ -169,6 +170,82 @@ const get24HourTrend = async (lat, lon, parameter) => {
     }));
 };
 
+// const getAllStations = async () => {
+//   let page = 1;
+//   let allStations = [];
+//   let hasMore = true;
+
+//   while (hasMore) {
+//     const res = await axios.get("https://api.openaq.org/v3/locations", {
+//       headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+//       params: { limit: 1000, page },
+//     });
+
+//     const { results } = res.data;
+//     if (!results || results.length === 0) break;
+
+//     allStations = allStations.concat(results);
+//     console.log(`Fetched page ${page}, total so far: ${allStations.length}`);
+//     page++;
+//     hasMore = results.length === 1000;
+//   }
+
+//   return allStations;
+// };
+
+const getAllStations = async () => {
+  let allStations = [];
+  let page = 1;
+  let hasMore = true;
+
+  console.log("🌍 Fetching OpenAQ global stations...");
+
+  while (hasMore) {
+    const res = await axios.get("https://api.openaq.org/v3/locations", {
+      headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+      params: { limit: 1000, page },
+    });
+
+    const { results } = res.data;
+    if (!results?.length) break;
+
+    allStations = allStations.concat(results);
+    console.log(
+      `✅ Page ${page}: ${results.length} fetched (Total: ${allStations.length})`
+    );
+
+    page++;
+    hasMore = results.length === 1000; // continue until last page
+  }
+
+  console.log(`🎉 Completed fetching ${allStations.length} stations.`);
+  return allStations;
+};
+
+const storeStations = async (stations) => {
+  console.log("💾 Inserting into Supabase...");
+
+  const formatted = stations
+    .filter((s) => s.coordinates)
+    .map((s) => ({
+      location_id: s.id.toString(),
+      name: s.name || null,
+      city: s.city || null,
+      country: s.country || null,
+      parameters: s.parameters || [],
+      last_updated: s.lastUpdated || null,
+      latitude: s.coordinates.latitude,
+      longitude: s.coordinates.longitude,
+    }));
+
+  const { error } = await supabase.from("stations").upsert(formatted, {
+    onConflict: "location_id",
+  });
+
+  if (error) throw error;
+  console.log(`✅ Upserted ${formatted.length} stations.`);
+};
+
 module.exports = {
   calculateOverallAQI,
   calculatePollutantAQI,
@@ -177,4 +254,6 @@ module.exports = {
   getPollutant,
   getSensorId,
   getWeather,
+  getAllStations,
+  storeStations,
 };
