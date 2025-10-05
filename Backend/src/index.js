@@ -20,11 +20,11 @@ app.use(express.urlencoded({ extended: true }));
 app.get("/", (req, res) => res.json("running"));
 app.use("/api", aqi);
 
-app.use(express.static(path.join(__dirname, "../frontend/dist")));
+app.use(express.static(path.join(__dirname, "../Client/dist")));
 
 // Catch all unmatched routes and serve index.html
 app.use((req, res, next) => {
-  res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
+  res.sendFile(path.join(__dirname, "../Client/dist/index.html"));
 });
 
 // Start server
