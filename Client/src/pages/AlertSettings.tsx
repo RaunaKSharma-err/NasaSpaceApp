@@ -6,6 +6,15 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import {
   Bell,
   Mail,
   Smartphone,
@@ -14,9 +23,11 @@ import {
   MapPin,
   Trash2,
   Save,
+  Loader,
 } from "lucide-react";
 import { useAQIStore } from "@/service/api";
 import type { City } from "@/service/api";
+import { toast } from "react-toastify";
 
 interface AlertThreshold {
   id: string;
@@ -28,6 +39,20 @@ interface AlertThreshold {
 }
 
 const AlertSettings = () => {
+  const [locations, setLocations] = useState<City[]>([]);
+  const {
+    getCities,
+    getCity,
+    cities,
+    deleteCity,
+    toggleLocation,
+    addCity,
+    cityDetails,
+  } = useAQIStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [newCity, setNewCity] = useState("");
+  const [isloading, setisloading] = useState(false);
+
   const [notifications, setNotifications] = useState({
     inApp: true,
     email: true,
@@ -61,9 +86,6 @@ const AlertSettings = () => {
     },
   ]);
 
-  const [locations, setLocations] = useState<City[]>([]);
-  const { getCities, cities, deleteCity, toggleLocation } = useAQIStore();
-
   useEffect(() => {
     getCities();
   }, []);
@@ -73,8 +95,6 @@ const AlertSettings = () => {
       setLocations(cities);
     }
   }, [cities]);
-
-  console.log(locations);
 
   const [email, setEmail] = useState("john@adam.com");
 
@@ -86,6 +106,26 @@ const AlertSettings = () => {
 
   const updateThresholdValue = (id: string, value: number) => {
     setThresholds(thresholds.map((t) => (t.id === id ? { ...t, value } : t)));
+  };
+
+  const handleSetCity = async () => {
+    if (!newCity.trim()) return;
+    setisloading(true);
+    try {
+      await getCity(newCity);
+      if (cityDetails) {
+        toast.warning("City Already exists!");
+        return;
+      }
+      addCity(newCity);
+      toast.success("City Added");
+    } catch (error) {
+      console.error("Failed to add city:", error);
+    } finally {
+      setisloading(false);
+      setIsDialogOpen(false);
+      getCities();
+    }
   };
 
   return (
@@ -268,7 +308,11 @@ const AlertSettings = () => {
               <MapPin className="h-5 w-5 text-primary" />
               <span>Monitored Locations</span>
             </CardTitle>
-            <Button variant="stellar" size="sm">
+            <Button
+              variant="stellar"
+              size="sm"
+              onClick={() => setIsDialogOpen(true)}
+            >
               <Plus className="h-4 w-4 mr-2" />
               Add Location
             </Button>
@@ -324,6 +368,41 @@ const AlertSettings = () => {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add a New Location</DialogTitle>
+              <DialogDescription>
+                Enter the city name to monitor air quality.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="city">City Name</Label>
+                <Input
+                  id="city"
+                  placeholder="e.g. Kathmandu"
+                  value={newCity}
+                  onChange={(e) => setNewCity(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="aurora" onClick={handleSetCity}>
+                {isloading ? (
+                  <p className="flex">
+                    Saving <Loader size={24} />
+                  </p>
+                ) : (
+                  "Save Location"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Save Button */}
         <div className="flex justify-center">

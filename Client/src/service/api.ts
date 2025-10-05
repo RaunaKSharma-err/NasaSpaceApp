@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
+import { toast } from "react-toastify";
 
 export type Pollutants = {
   pm25?: number;
@@ -97,7 +98,7 @@ export const useAQIStore = create<AQIStore>((set, get) => ({
       const response = await axiosInstance.get<AQIData>(`/city/${city}`);
       set({ cityDetails: response.data });
     } catch (error) {
-      console.error(`Error fetching city ${city}:`, error);
+      console.error(`Error fetching city ${city}:`, error.message);
     }
   },
 

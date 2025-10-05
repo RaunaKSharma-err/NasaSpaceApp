@@ -32,6 +32,7 @@ const Dashboard = () => {
       const city = await fetchEnabledCity();
       setEnabledCity(city);
     };
+    handleRefresh();
     loadCity();
   }, []);
 
@@ -48,7 +49,7 @@ const Dashboard = () => {
   if (!enabledCity)
     return (
       <div className="w-screen h-screen flex justify-center items-center">
-        <Loader size={30} />
+        <Loader className="animate-spin" size={30} />
       </div>
     );
 

@@ -8,8 +8,7 @@ import {
   LayerGroup,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import axios from "axios";
-import { MapPin, Satellite, Layers, Loader } from "lucide-react";
+import { MapPin, Satellite, Layers } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { axiosInstance } from "@/lib/axios";
@@ -22,27 +21,6 @@ interface Station {
   aqi?: number;
   pm25?: number;
   status?: string;
-}
-
-interface OpenAQParameter {
-  parameter: string;
-  lastValue?: {
-    value: number;
-    unit: string;
-    date: { utc: string; local: string };
-  };
-}
-
-interface OpenAQLocation {
-  id: string | number;
-  name: string;
-  coordinates: { latitude: number; longitude: number };
-  parameters: OpenAQParameter[];
-  lastValue?: {
-    value: number;
-    unit: string;
-    date: { utc: string; local: string };
-  };
 }
 
 const getStatusColor = (aqiStatus?: string) => {
@@ -73,8 +51,8 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
     toggleDropdown();
   };
 
+  const map = mapRef.current;
   useEffect(() => {
-    const map = mapRef.current;
     if (!map) return;
 
     // fetch initial stations
@@ -84,7 +62,7 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
     map.on("moveend", () => {
       fetchStations(map.getBounds());
     });
-  }, []);
+  }, [map]);
 
   const fetchStations = async (bounds: L.LatLngBounds) => {
     const southWest = bounds.getSouthWest();
@@ -109,12 +87,6 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
       setStations([]);
     }
   };
-
-  if (!stations)
-    <div>
-      <Loader size={30} />
-    </div>;
-  console.log(stations);
 
   return (
     <Card className="w-full bg-gradient-to-br from-card via-card to-card/50 border-border/50 relative">
@@ -162,6 +134,8 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
             center={[27.0449, 84.8672] as [number, number]}
             zoom={zoom}
             style={{ height: "100%", width: "100%", zIndex: 40 }}
+            scrollWheelZoom={true}
+            zoomControl={false}
             ref={mapRef}
             whenReady={() => {
               if (!mapRef.current) return;
@@ -178,7 +152,7 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
             }}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              attribution=""
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             {selectedLayers.airQuality && (

@@ -7,6 +7,7 @@ const {
   getWeather,
   getAllStations,
   storeStations,
+  canonicalPollutant,
 } = require("../services/aqiService.service");
 
 const handleAddCity = async (req, res) => {
@@ -49,10 +50,11 @@ const handleAddCity = async (req, res) => {
     const so2 = await getPollutant(lat, lon, "so2");
 
     const pollutants = { pm25, pm10, no2, o3, co, so2 };
-    console.log("pollutants", pollutants);
+    const normalizedPollutants = canonicalPollutant(pollutants);
+    console.log("pollutants", normalizedPollutants);
 
-    // Calculate AQI
-    const aqi = calculateOverallAQI(pollutants);
+
+    const aqi = calculateOverallAQI(normalizedPollutants);
     console.log("AQI:", aqi);
 
     // Trends

@@ -138,14 +138,38 @@ const aqiBreakpoints = {
   ],
 };
 
+// function calculatePollutantAQI(value, pollutant) {
+//   const breakpoints = aqiBreakpoints[pollutant];
+//   if (!breakpoints) return null;
+//   const bp = breakpoints.find((b) => value >= b.cpLow && value <= b.cpHigh);
+//   if (!bp) return 500;
+//   const aqi =
+//     ((bp.aqiHigh - bp.aqiLow) / (bp.cpHigh - bp.cpLow)) * (value - bp.cpLow) +
+//     bp.aqiLow;
+//   return Math.round(aqi);
+// }
+
 function calculatePollutantAQI(value, pollutant) {
+  if (value == null || isNaN(value)) return null;
+
   const breakpoints = aqiBreakpoints[pollutant];
-  if (!breakpoints) return null;
+  if (!breakpoints) {
+    console.warn(`⚠️ No AQI breakpoints for ${pollutant}`);
+    return null;
+  }
+
+  // Find correct range
   const bp = breakpoints.find((b) => value >= b.cpLow && value <= b.cpHigh);
-  if (!bp) return 500;
+
+  if (!bp) {
+    console.warn(`⚠️ Value ${value} out of range for ${pollutant}`);
+    return value > breakpoints[breakpoints.length - 1].cpHigh ? 500 : 0;
+  }
+
   const aqi =
     ((bp.aqiHigh - bp.aqiLow) / (bp.cpHigh - bp.cpLow)) * (value - bp.cpLow) +
     bp.aqiLow;
+
   return Math.round(aqi);
 }
 
@@ -169,29 +193,6 @@ const get24HourTrend = async (lat, lon, parameter) => {
       value: r.value,
     }));
 };
-
-// const getAllStations = async () => {
-//   let page = 1;
-//   let allStations = [];
-//   let hasMore = true;
-
-//   while (hasMore) {
-//     const res = await axios.get("https://api.openaq.org/v3/locations", {
-//       headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
-//       params: { limit: 1000, page },
-//     });
-
-//     const { results } = res.data;
-//     if (!results || results.length === 0) break;
-
-//     allStations = allStations.concat(results);
-//     console.log(`Fetched page ${page}, total so far: ${allStations.length}`);
-//     page++;
-//     hasMore = results.length === 1000;
-//   }
-
-//   return allStations;
-// };
 
 const getAllStations = async () => {
   let allStations = [];
@@ -246,6 +247,24 @@ const storeStations = async (stations) => {
   console.log(`✅ Upserted ${formatted.length} stations.`);
 };
 
+const canonicalPollutant = (pollutants) => {
+  const normalized = {};
+
+  if (pollutants.pm25) normalized.pm25 = pollutants.pm25; // µg/m³
+  if (pollutants.pm10) normalized.pm10 = pollutants.pm10;
+  if (pollutants.no2) normalized.no2 = pollutants.no2;
+  if (pollutants.o3) normalized.o3 = pollutants.o3;
+  if (pollutants.so2) normalized.so2 = pollutants.so2;
+
+  // ✅ Convert CO µg/m³ → ppm
+  if (pollutants.co) {
+    const ppm = (pollutants.co * 24.45) / (28.01 * 1000);
+    normalized.co = ppm;
+  }
+
+  return normalized;
+};
+
 module.exports = {
   calculateOverallAQI,
   calculatePollutantAQI,
@@ -256,4 +275,5 @@ module.exports = {
   getWeather,
   getAllStations,
   storeStations,
+  canonicalPollutant,
 };

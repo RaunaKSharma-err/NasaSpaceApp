@@ -11,11 +11,13 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Signup from "./pages/Signup";
 
+import { ToastContainer } from "react-toastify";
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <ToastContainer />
       <Toaster />
       <Sonner />
       <BrowserRouter>
