@@ -21,7 +21,9 @@ app.get("/", (req, res) => res.json("running"));
 app.use("/api", aqi);
 
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
-app.get("/*", (req, res) => {
+
+// Catch all unmatched routes and serve index.html
+app.use((req, res, next) => {
   res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
 
