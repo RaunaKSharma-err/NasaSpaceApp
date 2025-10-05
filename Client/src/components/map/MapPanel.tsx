@@ -1,14 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import L from "leaflet";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   MapContainer,
   TileLayer,
-  CircleMarker,
   Popup,
   LayerGroup,
+  Marker,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapPin, Satellite, Layers } from "lucide-react";
+import { MapPin, Satellite, Layers, RadioTower } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { axiosInstance } from "@/lib/axios";
@@ -22,21 +24,17 @@ interface Station {
   pm25?: number;
   status?: string;
 }
-
-const getStatusColor = (aqiStatus?: string) => {
-  switch (aqiStatus) {
-    case "good":
-      return "#22c55e";
-    case "moderate":
-      return "#eab308";
-    case "unhealthy-sensitive":
-      return "#f97316";
-    default:
-      return "#6b7280";
-  }
+const getIconColor = (station: Station) => {
+  if (!station.pm25) return "#2c5859";
+  const pm25 = station.pm25;
+  if (pm25 <= 12) return "green";
+  if (pm25 <= 35) return "yellow";
+  if (pm25 <= 55) return "orange";
+  if (pm25 <= 150) return "red";
+  return "purple";
 };
 
-const MapPanel = ({ zoom = 5, height = "500px" }) => {
+const MapPanel = ({ zoom = 7, height = "500px" }) => {
   const mapRef = useRef<L.Map>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedLayers, setSelectedLayers] = useState({
@@ -49,6 +47,19 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
   const toggleLayer = (layer: "airQuality" | "precipitation") => {
     setSelectedLayers({ ...selectedLayers, [layer]: !selectedLayers[layer] });
     toggleDropdown();
+  };
+
+  const createLucideIcon = (color: string, size = 20) => {
+    const iconMarkup = renderToStaticMarkup(
+      <RadioTower color={color} size={size} />
+    );
+
+    return L.divIcon({
+      html: iconMarkup,
+      className: "", // remove default marker styles
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2], // center it
+    });
   };
 
   const map = mapRef.current;
@@ -158,24 +169,18 @@ const MapPanel = ({ zoom = 5, height = "500px" }) => {
             {selectedLayers.airQuality && (
               <LayerGroup>
                 {stations.map((station) => (
-                  <CircleMarker
+                  <Marker
                     key={station.id}
-                    center={
-                      [station.latitude, station.longitude] as [number, number]
-                    }
-                    radius={5}
-                    color={getStatusColor(station.status)}
-                    fillOpacity={0.6}
+                    position={[station.latitude, station.longitude]}
+                    icon={createLucideIcon(getIconColor(station))}
                   >
                     <Popup>
                       <div className="space-y-1">
                         <h4 className="font-medium">{station.name}</h4>
-                        {station.aqi && <p>AQI: {station.aqi}</p>}
-                        {station.pm25 && <p>PM2.5: {station.pm25}</p>}
-                        <p>Status: {station.status}</p>
+                        <p>Status: Acitive</p>
                       </div>
                     </Popup>
-                  </CircleMarker>
+                  </Marker>
                 ))}
               </LayerGroup>
             )}

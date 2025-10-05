@@ -138,17 +138,6 @@ const aqiBreakpoints = {
   ],
 };
 
-// function calculatePollutantAQI(value, pollutant) {
-//   const breakpoints = aqiBreakpoints[pollutant];
-//   if (!breakpoints) return null;
-//   const bp = breakpoints.find((b) => value >= b.cpLow && value <= b.cpHigh);
-//   if (!bp) return 500;
-//   const aqi =
-//     ((bp.aqiHigh - bp.aqiLow) / (bp.cpHigh - bp.cpLow)) * (value - bp.cpLow) +
-//     bp.aqiLow;
-//   return Math.round(aqi);
-// }
-
 function calculatePollutantAQI(value, pollutant) {
   if (value == null || isNaN(value)) return null;
 
@@ -194,6 +183,53 @@ const get24HourTrend = async (lat, lon, parameter) => {
     }));
 };
 
+const canonicalPollutant = (pollutants) => {
+  const normalized = {};
+
+  if (pollutants.pm25) normalized.pm25 = pollutants.pm25; // µg/m³
+  if (pollutants.pm10) normalized.pm10 = pollutants.pm10;
+  if (pollutants.no2) normalized.no2 = pollutants.no2;
+  if (pollutants.o3) normalized.o3 = pollutants.o3;
+  if (pollutants.so2) normalized.so2 = pollutants.so2;
+
+  // ✅ Convert CO µg/m³ → ppm
+  if (pollutants.co) {
+    const ppm = (pollutants.co * 24.45) / (28.01 * 1000);
+    normalized.co = ppm;
+  }
+
+  return normalized;
+};
+
+// 🔹 Fetch latest measurement for one station
+const getStationMeasurements = async (locationId) => {
+  try {
+    const res = await axios.get("https://api.openaq.org/v3/measurements", {
+      headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+      params: {
+        location_id: locationId,
+        limit: 1,
+        order_by: "datetime",
+        sort: "desc",
+      },
+    });
+
+    if (!res.data?.results?.length) {
+      return null; // No data for this station
+    }
+
+    const latest = res.data.results[0];
+    return {
+      pollutant: latest.parameter || null,
+      value: latest.value || null,
+      units: latest.unit || null,
+    };
+  } catch (err) {
+    return null; // ignore failures, just mark as no data
+  }
+};
+
+// 🔹 Fetch all stations and attach their latest measurement
 const getAllStations = async () => {
   let allStations = [];
   let page = 1;
@@ -216,15 +252,28 @@ const getAllStations = async () => {
     );
 
     page++;
-    hasMore = results.length === 1000; // continue until last page
+    hasMore = results.length === 1000;
   }
 
   console.log(`🎉 Completed fetching ${allStations.length} stations.`);
-  return allStations;
+
+  // 🔹 Fetch measurements, but keep null if none
+  console.log("📡 Fetching station measurements...");
+
+  const withMeasurements = await Promise.all(
+    allStations.map(async (s) => {
+      const measurements = await getStationMeasurements(s.id).catch(() => null);
+      return { ...s, measurements }; // measurements will be null if no data
+    })
+  );
+
+  console.log("✅ Completed fetching measurements for all stations.");
+  return withMeasurements;
 };
 
+// 🔹 Store stations in Supabase with latest pollutant info
 const storeStations = async (stations) => {
-  console.log("💾 Inserting into Supabase...");
+  console.log("💾 Inserting/Updating stations into Supabase...");
 
   const formatted = stations
     .filter((s) => s.coordinates)
@@ -237,6 +286,9 @@ const storeStations = async (stations) => {
       last_updated: s.lastUpdated || null,
       latitude: s.coordinates.latitude,
       longitude: s.coordinates.longitude,
+      latest_pollutant: s.latestMeasurement?.pollutant || null,
+      latest_value: s.latestMeasurement?.value || null,
+      latest_units: s.latestMeasurement?.units || null,
     }));
 
   const { error } = await supabase.from("stations").upsert(formatted, {
@@ -244,26 +296,20 @@ const storeStations = async (stations) => {
   });
 
   if (error) throw error;
-  console.log(`✅ Upserted ${formatted.length} stations.`);
+  console.log(
+    `✅ Upserted ${formatted.length} stations with latest pollutant data.`
+  );
 };
 
-const canonicalPollutant = (pollutants) => {
-  const normalized = {};
-
-  if (pollutants.pm25) normalized.pm25 = pollutants.pm25; // µg/m³
-  if (pollutants.pm10) normalized.pm10 = pollutants.pm10;
-  if (pollutants.no2) normalized.no2 = pollutants.no2;
-  if (pollutants.o3) normalized.o3 = pollutants.o3;
-  if (pollutants.so2) normalized.so2 = pollutants.so2;
-
-  // ✅ Convert CO µg/m³ → ppm
-  if (pollutants.co) {
-    const ppm = (pollutants.co * 24.45) / (28.01 * 1000);
-    normalized.co = ppm;
-  }
-
-  return normalized;
-};
+// // 🔹 Run the process
+// (async () => {
+//   try {
+//     const stations = await getAllStations();
+//     await storeStations(stations);
+//   } catch (err) {
+//     console.error("❌ Failed to update stations:", err);
+//   }
+// })();
 
 module.exports = {
   calculateOverallAQI,
