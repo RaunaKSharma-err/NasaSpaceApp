@@ -3,6 +3,8 @@ const dotenv = require("dotenv");
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const PORT = process.env.PORT;
+const _dirname = path.resolve();
 
 dotenv.config();
 
@@ -10,24 +12,23 @@ const aqi = require("./routes/aqi.routes");
 const app = express();
 
 // CORS
-app.use(cors({ origin: "*", credentials: true }));
 
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors({ origin: "http://localhost:8080", credentials: true }));
 
 // API routes
 app.get("/", (req, res) => res.json("running"));
 app.use("/api", aqi);
 
-app.use(express.static(path.join(__dirname, "../Client/dist")));
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(_dirname, "../Client/dist")));
 
-// Catch all unmatched routes and serve index.html
-app.use((req, res, next) => {
-  res.sendFile(path.join(__dirname, "../Client/dist/index.html"));
-});
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(_dirname, "../Client", "dist", "index.html"));
+  });
+}
 
 // Start server
-app.listen(process.env.PORT, () =>
-  console.log(`Server running on port ${process.env.PORT}`)
-);
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
