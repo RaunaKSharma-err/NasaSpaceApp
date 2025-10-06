@@ -15,14 +15,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const allowedOrigins = [
-  "http://localhost:8080", // local dev
-  "https://nasaspaceapp-frontend-t7bg.onrender.com", // your deployed frontend
+  "http://localhost:8080",
+  "https://nasaspaceapp-frontend-t7bg.onrender.com",
+  "https://kiza.work"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // allow requests with no origin (like curl, postman)
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) === -1) {
         const msg =
