@@ -25,7 +25,7 @@ app.use("/api", aqi);
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(_dirname, "../Client/dist")));
 
-  app.get("/:path(*)", (req, res) => {
+  app.use("*", (req, res) => {
     res.sendFile(path.join(_dirname, "../Client", "dist", "index.html"));
   });
 }
