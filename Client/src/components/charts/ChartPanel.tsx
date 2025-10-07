@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, CloudOff } from "lucide-react";
 
 interface ChartData {
   time: string;
@@ -61,7 +61,7 @@ const mockForecastData = [
   { day: "Tomorrow", aqi: 45, pm25: 13.2, prediction: "good" },
   { day: "Day 3", aqi: 52, pm25: 15.8, prediction: "moderate" },
   { day: "Day 4", aqi: 38, pm25: 11.5, prediction: "good" },
-  { day: "Day 5", aqi: 41, pm25: 12.8, prediction: "good" },
+  { day: "Day 5", aqi: 41, pm25: 12.8, prediction: "moderate" },
 ];
 
 const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
@@ -123,58 +123,64 @@ const ChartPanel = ({
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={height}>
-          <ChartComponent
-            data={data}
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-          >
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="hsl(var(--border))"
-              opacity={0.3}
-            />
-            <XAxis
-              dataKey="time"
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            {showLegend && <Legend />}
+          {data.length === 0 ? (
+            <p>
+              Sensor in your location could not povide data <CloudOff />
+            </p>
+          ) : (
+            <ChartComponent
+              data={data}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
+                opacity={0.3}
+              />
+              <XAxis
+                dataKey="time"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              {showLegend && <Legend />}
 
-            {dataKeys.map((key, index) => {
-              const color = colors[index] || colors[0];
-              return type === "area" ? (
-                <Area
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={color}
-                  fill={color}
-                  fillOpacity={0.1}
-                  strokeWidth={2}
-                  name={key.toUpperCase()}
-                />
-              ) : (
-                <Line
-                  key={key}
-                  type="monotone"
-                  dataKey={key}
-                  stroke={color}
-                  strokeWidth={2}
-                  dot={{ fill: color, strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: color, strokeWidth: 2 }}
-                  name={key.toUpperCase()}
-                />
-              );
-            })}
-          </ChartComponent>
+              {dataKeys.map((key, index) => {
+                const color = colors[index] || colors[0];
+                return type === "area" ? (
+                  <Area
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={color}
+                    fill={color}
+                    fillOpacity={0.1}
+                    strokeWidth={2}
+                    name={key.toUpperCase()}
+                  />
+                ) : (
+                  <Line
+                    key={key}
+                    type="monotone"
+                    dataKey={key}
+                    stroke={color}
+                    strokeWidth={2}
+                    dot={{ fill: color, strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: color, strokeWidth: 2 }}
+                    name={key.toUpperCase()}
+                  />
+                );
+              })}
+            </ChartComponent>
+          )}
         </ResponsiveContainer>
       </CardContent>
     </Card>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import DataCard from "@/components/dashboard/DataCard";
 import MapPanel from "@/components/map/MapPanel";
-import ChartPanel, { mockHistoricalData } from "@/components/charts/ChartPanel";
+import ChartPanel from "@/components/charts/ChartPanel";
 import AlertsList from "@/components/alerts/AlertsList";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Thermometer,
@@ -26,21 +25,40 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState("Birgunj, NP");
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [chartData, setchartData] = useState([]);
 
   useEffect(() => {
     const loadCity = async () => {
+      setIsLoading(true);
       const city = await fetchEnabledCity();
       setEnabledCity(city);
+
+      setLastUpdated(new Date());
+      setIsLoading(false);
     };
-    handleRefresh();
     loadCity();
   }, []);
+
+  useEffect(() => {
+    if (!enabledCity?.trends?.pm25) return;
+
+    const transformed = enabledCity.trends.pm25.map((entry) => ({
+      time: new Date(entry.date).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      pm25: entry.value,
+    }));
+
+    setchartData(transformed);
+  }, [enabledCity?.trends?.pm25]);
 
   const handleRefresh = () => {
     setIsLoading(true);
     setTimeout(async () => {
       const city = await fetchEnabledCity();
       setEnabledCity(city);
+      setLocation(enabledCity.city.toUpperCase());
       setLastUpdated(new Date());
       setIsLoading(false);
     }, 1500);
@@ -62,6 +80,7 @@ const Dashboard = () => {
     visibility: enabledCity.visibility,
     uvIndex: enabledCity.uv_index,
     precipitation: enabledCity.precipitation,
+    trends: enabledCity.trends,
   };
 
   return (
@@ -170,7 +189,7 @@ const Dashboard = () => {
 
           {/* Alerts Panel */}
           <div className="lg:col-span-1">
-            <AlertsList />
+            <AlertsList enabledCity={enabledCity} />
           </div>
         </div>
 
@@ -219,10 +238,10 @@ const Dashboard = () => {
         {/* Recent Trends Chart */}
         <div>
           <ChartPanel
-            title="24-Hour Air Quality Trends"
+            title="24-Hour Pollutant Trends"
             type="area"
-            data={mockHistoricalData}
-            dataKeys={["aqi", "pm25"]}
+            data={chartData ?? []}
+            dataKeys={["pm25"]}
             colors={["#3b82f6", "#8b5cf6"]}
             height={350}
             trend="up"

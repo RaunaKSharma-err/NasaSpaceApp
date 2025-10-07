@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,33 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+interface TrendEntry {
+  date: string;
+  value: number;
+}
+
+interface CityTrends {
+  pm25: TrendEntry[];
+  [key: string]: TrendEntry[]; // optional: support other pollutants too
+}
+
+interface EnabledCity {
+  city: string;
+  aqi: number;
+  pm25: number;
+  temperature: number;
+  humidity: number;
+  wind_speed: number;
+  visibility: number;
+  uv_index: number;
+  precipitation: number;
+  trends: CityTrends;
+}
+
+interface AlertsListProps {
+  enabledCity: EnabledCity; // you can later type this properly
+}
 
 interface AlertItem {
   id: string;
@@ -100,9 +127,51 @@ const getSeverityColor = (severity: AlertItem["severity"]) => {
   }
 };
 
-const AlertsList = () => {
+const AlertsList: React.FC<AlertsListProps> = ({ enabledCity }) => {
   const [alerts, setAlerts] = useState<AlertItem[]>(mockAlerts);
   const [showOnlyUnread, setShowOnlyUnread] = useState(false);
+
+  // Watch PM2.5 trends and generate alerts dynamically
+  useEffect(() => {
+    if (!enabledCity?.trends?.pm25) return;
+
+    const latestPM25 = enabledCity.trends.pm25.slice(-1)[0]?.value;
+
+    if (!latestPM25) return;
+
+    // Define thresholds (μg/m³)
+    let level: "normal" | "moderate" | "high" = "normal";
+    if (latestPM25 > 35 && latestPM25 <= 55) level = "moderate";
+    else if (latestPM25 > 55) level = "high";
+
+    if (level !== "normal") {
+      const newAlert: AlertItem = {
+        id: crypto.randomUUID(),
+        type: level === "high" ? "error" : "warning",
+        title:
+          level === "high"
+            ? "High Pollution Alert"
+            : "Moderate Air Quality Alert",
+        message:
+          level === "high"
+            ? `PM2.5 levels have reached ${latestPM25} µg/m³ — unhealthy conditions detected in ${enabledCity.city}.`
+            : `PM2.5 levels are moderate at ${latestPM25} µg/m³ in ${enabledCity.city}.`,
+        timestamp: new Date().toLocaleTimeString(),
+        location: enabledCity.city ?? "Unknown",
+        severity: level === "high" ? "high" : "medium",
+        read: false,
+      };
+
+      setAlerts((prev) => {
+        // Avoid duplicate alerts with the same severity in a short time window
+        const recent = prev.find(
+          (a) => a.severity === newAlert.severity && a.read === false
+        );
+        if (recent) return prev;
+        return [newAlert, ...prev];
+      });
+    }
+  }, [enabledCity?.trends?.pm25]);
 
   const filteredAlerts = showOnlyUnread
     ? alerts.filter((alert) => !alert.read)

@@ -25,22 +25,43 @@ const getWeather = async (lat, lon) => {
   };
 };
 
-const getSensorId = async (lat, lon, parameter) => {
-  const res = await axios.get(
-    `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=25000&limit=1000`,
-    {
-      headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+const getSensorId = async (lat, lon, parameter = "pm25") => {
+  try {
+    const res = await axios.get(
+      `https://api.openaq.org/v3/locations?coordinates=${lat},${lon}&radius=25000&limit=1000`,
+      {
+        headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+      }
+    );
+
+    const { results } = res.data;
+    if (!results?.length) {
+      console.warn("⚠️ No nearby stations found.");
+      return null;
     }
-  );
 
-  if (!res.data.results.length) return null;
+    // Loop through each station’s sensors
+    for (const loc of results) {
+      if (Array.isArray(loc.sensors)) {
+        const match = loc.sensors.find(
+          (s) => s.parameter?.name?.toLowerCase() === parameter.toLowerCase()
+        );
+        const value = parameter;
+        if (match) {
+          console.log(
+            `✅ Found ${parameter} sensor for station ${loc.name}: ID ${match.id}`
+          );
+          return match.id;
+        }
+      }
+    }
 
-  for (const loc of res.data.results) {
-    const sensor = loc.sensors.find((s) => s.parameter === parameter);
-    if (sensor) return sensor.id;
+    console.warn(`❌ No matching sensor for parameter ${parameter}`);
+    return null;
+  } catch (err) {
+    console.error("❌ Failed to fetch sensor ID:", err.message);
+    return null;
   }
-
-  return null; // No matching sensor
 };
 
 const getPollutant = async (lat, lon, parameter) => {
@@ -163,24 +184,40 @@ function calculatePollutantAQI(value, pollutant) {
 }
 
 const get24HourTrend = async (lat, lon, parameter) => {
-  const sensorId = await getSensorId(lat, lon, parameter);
-  if (!sensorId) return []; // No sensor found
-
-  const res = await axios.get(
-    `https://api.openaq.org/v3/sensors/${sensorId}/hours?limit=24`,
-    {
-      headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+  try {
+    const sensorId = await getSensorId(lat, lon, parameter);
+    if (!sensorId) {
+      console.warn(`⚠️ No sensor found near (${lat}, ${lon}) for ${parameter}`);
+      return [];
     }
-  );
 
-  if (!res.data.results || !res.data.results.length) return [];
+    const res = await axios.get(
+      `https://api.openaq.org/v3/sensors/${sensorId}/hours?limit=24`,
+      {
+        headers: { "X-API-Key": process.env.OPENAQ_API_KEY },
+      }
+    );
 
-  return res.data.results
-    .filter((r) => r.date?.from && r.value !== undefined)
-    .map((r) => ({
-      date: r.date.utc,
-      value: r.value,
+    const results = res.data?.results || [];
+    if (!results.length) {
+      console.warn(`⚠️ No hourly data available for sensor ${sensorId}`);
+      return [];
+    }
+
+    // ✅ Map the correct fields
+    const trend = results.map((r) => ({
+      date: r.period?.datetimeFrom?.utc || null, // The actual timestamp
+      value: r.value || null, // The pollutant value
+      parameter: r.parameter?.name || parameter, // e.g., pm25
+      units: r.parameter?.units || "",
     }));
+
+    console.log(`✅ 24-hour trend (${parameter}) →`, trend.length, "records");
+    return trend.filter((t) => t.date && t.value !== null);
+  } catch (err) {
+    console.error("❌ Failed to fetch 24-hour trend:", err.message);
+    return [];
+  }
 };
 
 const canonicalPollutant = (pollutants) => {
@@ -310,6 +347,43 @@ const storeStations = async (stations) => {
 //     console.error("❌ Failed to update stations:", err);
 //   }
 // })();
+
+//===========================================after liv updates==========================================
+
+// const getHourlyTrend = async (sensorId) => {
+//   try {
+//     const res = await axios.get(
+//       `https://api.openaq.org/v3/sensors/${sensorId}/hours/hourofday`,
+//       {
+//         headers: {
+//           "X-API-Key": process.env.OPENAQ_API_KEY,
+//         },
+//         params: {
+//           parameter: "pm25",
+//           limit: 24,
+//           sort: "desc",
+//         },
+//       }
+//     );
+
+//     const { results } = res.data;
+//     if (!results?.length) return [];
+
+//     // Format for chart: [{ hour: '01:00', value: 12.3 }, ...]
+//     const formatted = results
+//       .map((r) => ({
+//         hour: `${r.hour}:00`,
+//         value: r.value,
+//         parameter: r.parameter,
+//       }))
+//       .reverse(); // oldest to newest
+
+//     return formatted;
+//   } catch (err) {
+//     console.error("❌ Failed to fetch hourly trend:", err.message);
+//     return [];
+//   }
+// };
 
 module.exports = {
   calculateOverallAQI,

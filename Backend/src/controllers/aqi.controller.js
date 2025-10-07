@@ -42,7 +42,7 @@ const handleAddCity = async (req, res) => {
     console.log(weather);
 
     // Fetch pollutants
-    const pm25 = await getPollutant(lat, lon, "pm2_5");
+    const pm25 = await getPollutant(lat, lon, "pm25");
     const pm10 = await getPollutant(lat, lon, "pm10");
     const no2 = await getPollutant(lat, lon, "no2");
     const o3 = await getPollutant(lat, lon, "o3");
@@ -53,7 +53,6 @@ const handleAddCity = async (req, res) => {
     const normalizedPollutants = canonicalPollutant(pollutants);
     console.log("pollutants", normalizedPollutants);
 
-
     const aqi = calculateOverallAQI(normalizedPollutants);
     console.log("AQI:", aqi);
 
@@ -62,6 +61,7 @@ const handleAddCity = async (req, res) => {
     for (const param of Object.keys(pollutants)) {
       trends[param] = await get24HourTrend(lat, lon, param);
     }
+    console.log("trends", trends);
 
     // Insert new record
     const { data, error } = await supabase
@@ -80,6 +80,7 @@ const handleAddCity = async (req, res) => {
           visibility: weather.visibility ?? null,
           uv_index: weather.uv_index ?? null,
           precipitation: weather.precipitation ?? null,
+          trends,
           created_at: new Date(),
         },
       ])
@@ -224,6 +225,15 @@ const getStations = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
 
   res.json({ stations: data });
+};
+
+const getHourlyTrend = async () => {
+  try {
+    const data = await getHourlyTrend(req.params.sensorId);
+    res.json({ trend: data });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch 24-hour trend" });
+  }
 };
 
 module.exports = {

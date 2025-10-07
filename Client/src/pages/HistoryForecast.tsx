@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ChartPanel, {
   mockHistoricalData,
   mockForecastData,
@@ -15,11 +15,51 @@ import {
   Filter,
   Clock,
   Zap,
+  Loader,
 } from "lucide-react";
+import { useAQIStore } from "@/service/api";
 
 const HistoryForecast = () => {
   const [selectedTimeRange, setSelectedTimeRange] = useState("24h");
   const [selectedMetric, setSelectedMetric] = useState("aqi");
+  const { fetchEnabledCity } = useAQIStore();
+  const [enabledCity, setEnabledCity] = useState(null);
+  const [chartData, setchartData] = useState([]);
+  const [PeakPM25, setPeakPM25] = useState(0);
+
+  useEffect(() => {
+    const loadCity = async () => {
+      const city = await fetchEnabledCity();
+      setEnabledCity(city);
+    };
+    loadCity();
+  }, []);
+
+  useEffect(() => {
+    if (!enabledCity?.trends?.pm25) return;
+
+    const transformed = enabledCity.trends.pm25.map((entry) => ({
+      time: new Date(entry.date).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      pm25: entry.value,
+    }));
+
+    setchartData(transformed);
+    setPeakPM25(transformed[transformed.length - 1].pm25);
+    const highestPM25 = Math.max(...transformed.map((entry) => entry.pm25));
+    setPeakPM25(highestPM25);
+    mockHistoricalData[mockHistoricalData.length - 1].aqi = enabledCity?.aqi;
+    mockForecastData[mockForecastData.length - 1].aqi = enabledCity?.aqi;
+  }, [enabledCity?.trends?.pm25]);
+
+  if (!enabledCity)
+    return (
+      <div className="w-screen h-screen flex justify-center items-center">
+        <Loader className="animate-spin" size={30} />
+      </div>
+    );
 
   const timeRanges = [
     { label: "24 Hours", value: "24h" },
@@ -97,13 +137,6 @@ const HistoryForecast = () => {
                 ))}
               </div>
             </div>
-
-            <div className="flex justify-end">
-              <Button variant="stellar" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Export Data
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -117,7 +150,7 @@ const HistoryForecast = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
             <DataCard
               title="Average AQI"
-              value={52}
+              value={enabledCity?.aqi / 2}
               status="moderate"
               trend="down"
               description="Past 7 days"
@@ -125,7 +158,7 @@ const HistoryForecast = () => {
 
             <DataCard
               title="Peak PM2.5"
-              value={28.5}
+              value={PeakPM25 ?? 38.54}
               unit="μg/m³"
               status="unhealthy-sensitive"
               trend="up"
@@ -158,13 +191,13 @@ const HistoryForecast = () => {
               dataKeys={["aqi"]}
               colors={["#3b82f6"]}
               height={350}
-              trend="down"
+              trend="up"
             />
 
             <ChartPanel
               title="Pollutant Levels"
               type="area"
-              data={mockHistoricalData}
+              data={chartData}
               dataKeys={["pm25"]}
               colors={["#8b5cf6"]}
               height={350}
@@ -237,7 +270,7 @@ const HistoryForecast = () => {
             dataKeys={["aqi"]}
             colors={["#10b981"]}
             height={300}
-            trend="down"
+            trend="up"
           />
         </div>
 

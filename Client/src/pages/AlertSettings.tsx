@@ -28,6 +28,7 @@ import {
 import { useAQIStore } from "@/service/api";
 import type { City } from "@/service/api";
 import { toast } from "react-toastify";
+import { Link } from "react-router-dom";
 
 interface AlertThreshold {
   id: string;
@@ -76,14 +77,6 @@ const AlertSettings = () => {
       unit: "μg/m³",
       enabled: true,
     },
-    {
-      id: "3",
-      parameter: "Ozone",
-      condition: "above",
-      value: 120,
-      unit: "μg/m³",
-      enabled: false,
-    },
   ]);
 
   useEffect(() => {
@@ -107,7 +100,7 @@ const AlertSettings = () => {
   const updateThresholdValue = (id: string, value: number) => {
     setThresholds(thresholds.map((t) => (t.id === id ? { ...t, value } : t)));
   };
-
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const handleSetCity = async () => {
     if (!newCity.trim()) return;
     setisloading(true);
@@ -118,6 +111,7 @@ const AlertSettings = () => {
         return;
       }
       addCity(newCity);
+      await delay(15000);
       toast.success("City Added");
     } catch (error) {
       console.error("Failed to add city:", error);
@@ -225,6 +219,7 @@ const AlertSettings = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your.email@example.com"
                   className="max-w-md"
+                  readOnly={true}
                 />
               </div>
             )}
@@ -238,10 +233,12 @@ const AlertSettings = () => {
               <Settings className="h-5 w-5 text-primary" />
               <span>Alert Thresholds</span>
             </CardTitle>
-            <Button variant="stellar" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Threshold
-            </Button>
+            <Link to={"/signup"}>
+              <Button variant="stellar" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Threshold
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent className="space-y-4">
             {thresholds.map((threshold) => (
@@ -366,6 +363,9 @@ const AlertSettings = () => {
                 No locations available
               </p>
             )}
+            <span className="text-sm text-center w-full text-red-500 ">
+              NOTE: Please enable only one city for Accurate result.
+            </span>
           </CardContent>
         </Card>
 
@@ -394,7 +394,7 @@ const AlertSettings = () => {
               <Button variant="aurora" onClick={handleSetCity}>
                 {isloading ? (
                   <p className="flex">
-                    Saving <Loader size={24} />
+                    Fetching data... <Loader size={24} />
                   </p>
                 ) : (
                   "Save Location"
@@ -403,14 +403,6 @@ const AlertSettings = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Save Button */}
-        <div className="flex justify-center">
-          <Button variant="aurora" size="lg" className="min-w-[200px]">
-            <Save className="h-5 w-5 mr-2" />
-            Save All Settings
-          </Button>
-        </div>
       </div>
     </div>
   );
